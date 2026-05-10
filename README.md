@@ -1,63 +1,39 @@
 # Go To Do App
 
-This a 3 tier **To-Do List** application,  where: 
+Following configurations are completed as per assessment.  
+- Github actions CI files are ready.
+    - Any change in `client/` directory triggers `frontend-ci.yaml` CI.
+    - Any change in `server/` directory triggers `api-ci.yaml` CI.
+- Terraform code is ready to provision minikube single node kubernetes cluster.
+- Kubernetes manifest files are ready to deploy application on through kubernetes.
 
-- Data tier is NoSQL with mongo
-- API tier is Golang (exposed to the host on port 8080)
-- Frontend tier is React (exposed to the host on port 8081)
-
-
-# Prerequisites 
-
-Running this app locally require :
-- Make (3.81 or later)
-- Docker (v19.03 or later)
-- Docker Compose (v1.25.5 or later)
-
-**For kubernetes run** you need also : 
-
-- Helm (v3.3.3 or later)
-- Helmfile (v0.129.3 or later)
-- Local kubernetes cluster (v1.16 or above) - Docker-for-Desktop is recommended
-
-> More Details about [How to setup local k8s cluster with wildcard SSL certificate attached with the ingress](https://github.com/kubernetes-tn/guideline-kubernetes-enterprise/blob/master/general/desktop-env-setup.md)
-
-> `helm -f helmfile.ecosystem.yaml apply` might be useful
 
 # Getting Started
 
-**1. configure it**
+**1. Test CI files**
 
-- generate .env file `cp .env.example .env`
-- populate env vars `export $(cat .env| xargs)`
+- Update any of the files inside `client/` directory and observe the `frontend-ci.yaml` trigger.
+- Update any of the files inside `server/` directory and observe the `api-ci.yaml` trigger.  
 
-**2.a. start it with docker-compose** run `docker-compose up -d` or `make up`
-then navigate to http://localhost:8081 
-or interact directly with API thru localhost:8080 endpoint
+Both the CI files are being triggered as expected.
 
-ALTERNATIVELY
+**2.Provision minikube cluster**
+- Go to `terraform` directory.
+- run `terraform init` to initialize the terraform.
+- run `terraform plan` and view the resources going to be provisioned against terraform files.
+- After reviewing and observing the resources, run `terraform apply` command and provision the minikube cluster in one go.
 
-**2.b. start it with helmfile**
+**3. Deploy application via kubernetes manifest files**
+All the kubernetes deployment files are in `k8s` directory.  
+- From project root directory run the following command.  
+        `kubectl apply -f k8s/`
+- All the manifest files will be deployed and application will get started.  
 
-- built images `make`
-- Run it on kubernetes `make k8s.up`
+To access the application, do port-forwarding (temporarily) to confirm the application status.  
+- Run the following command in terminal.  
+        `kubectl port-forward svc/frontend 8082:8081 -n todo-app &`
+- Go to `localhost:8082` in web browser and confirm the application status.  
 
-then navigate to https://todo.docker.internal
-or interact directly with API thru https://todo-api.docker.internal endpoint
+You should be able to see the application front page.  
 
-> If you don't have ingress in the cluster, we recommend running `make k8s.up.ecosystem` after visiting [helmfile.ecosystem.yaml](helmfile.ecosystem.yaml) file.
-
-# Contribution
-
-Guide for Contribution is [here](./CONTRIBUTING.md).
-
-# Authors 
-
-- Shubham Kumar Chadokar <https://schadokar.dev> - Software Owner & Initiator
-- Abdennour Toumi <http://kubernetes.tn> - Adding Cloud-native aspect on the software (docker, helm, kubernetes) 
-
-# License
-
-MIT License
-
-Copyright (c) 2019 Shubham Chadokar
+Note: Auto application/kubernetes deployment via terraform part couldn't be done due to time shortage as couple of issues regarding docker images and other configs took much time.
