@@ -1,0 +1,105 @@
+---
+# ConfigMap stores non-secret runtime config for the frontend
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: todo-app
+data:
+  # The React app reads env vars through env.js served at runtime.
+  # REACT_APP_API_URL must point to the API service (via NodePort or Ingress in minikube).
+  REACT_APP_API_URL: "http://api:8080"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: todo-app
+  labels:
+    app: frontend
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: frontend
+    spec:
+      # Init container generates env.js from environment variables (mirrors docker-compose sidecar)
+      initContainers:
+        - name: env-gen
+          image: abdennour/dotenv-to-js-object:4ea
+          workingDir: /data
+          command:
+            - sh
+            - -c
+            - |
+              echo "window._env_ = { REACT_APP_API_URL: \"${REACT_APP_API_URL}\" };" > /data/env.js
+          env:
+            - name: REACT_APP_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: REACT_APP_API_URL
+          volumeMounts:
+            - name: env-js
+              mountPath: /data
+
+      containers:
+        - name: frontend
+          # Replace <YOUR_DOCKERHUB_USERNAME> with your Docker Hub username
+          image: <YOUR_DOCKERHUB_USERNAME>/go-to-do-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: env-js
+              mountPath: /opt/app/config
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+      volumes:
+        - name: env-js
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: todo-app
+  labels:
+    app: frontend
+    tier: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30081
+  # NodePort so minikube can expose it directly (use `minikube service frontend -n todo-app`)
+  type: NodePort
