@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: todo-app
+spec:
+  selector:
+    app: db
+  ports:
+    - port: 27017
+      targetPort: 27017
+  clusterIP: None   # Headless service — stable DNS for StatefulSet pods
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: todo-app
+spec:
+  serviceName: db
+  replicas: 1   # DB_REPLICA_COUNT=1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: mongodb
+          image: bitnamilegacy/mongodb:4.4.1
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGODB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_ROOT_PASS
+            - name: MONGODB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_NAME
+            - name: MONGODB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_USER
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASS
+          volumeMounts:
+            - name: db-data
+              mountPath: /bitnami/mongodb
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

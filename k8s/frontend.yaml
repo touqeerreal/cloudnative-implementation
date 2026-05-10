@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: todo-app
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 8081
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: todo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      initContainers:
+        - name: env-gen
+          image: abdennour/dotenv-to-js-object:4ea
+          workingDir: /data
+          args:
+            - "--env-vars-filter=REACT_APP_"
+            - "--run-as=oneshot"
+          env:
+            - name: REACT_APP_API_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: REACT_APP_API_ENDPOINT
+          volumeMounts:
+            - name: env-js
+              mountPath: /data
+
+      containers:
+        - name: frontend
+          image: touqeerreal/go-to-do-frontend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: REACT_APP_API_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: REACT_APP_API_ENDPOINT
+          volumeMounts:
+            - name: env-js
+              mountPath: /opt/app/config
+              readOnly: true
+
+        - name: env-gen-sidecar
+          image: abdennour/dotenv-to-js-object:4ea
+          workingDir: /data
+          args:
+            - "--env-vars-filter=REACT_APP_"
+            - "--run-as=daemon"
+            - "--refresh-period=50"
+          env:
+            - name: REACT_APP_API_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: REACT_APP_API_ENDPOINT
+          volumeMounts:
+            - name: env-js
+              mountPath: /data
+
+      volumes:
+        - name: env-js
+          emptyDir: {}
